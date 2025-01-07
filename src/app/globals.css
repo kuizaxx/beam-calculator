@@ -1,4 +1,4 @@
-
+/* src/app/styles/globals.css */
 body {
   font-family: sans-serif;
   margin: 20px;
@@ -59,27 +59,51 @@ button[type="submit"]:hover {
 }
 
 .chart-container {
-  background-color: #fff;
+  width: 70%;
+  margin: 0 auto;
+  height: auto;
   padding: 20px;
   border-radius: 5px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
   margin-bottom: 20px;
 }
 
+/* Điều chỉnh kích thước cho màn hình nhỏ hơn */
 @media (max-width: 768px) {
-  form {
-    padding: 15px;
-  }
-
-  input[type="number"] {
-    padding: 6px;
-  }
-
-  button[type="submit"] {
-    padding: 8px 15px;
-  }
-
   .chart-container {
-    padding: 15px;
+    width: 95%; /* Rộng hơn trên màn hình nhỏ */
+  }
+}
+
+@media (max-width: 480px) {
+  .chart-container {
+    width: 100%; /* Rộng hơn nữa trên màn hình rất nhỏ */
+  }
+}
+
+/* Thêm CSS cho input area */
+.input-area {
+  display: flex; /* Sử dụng Flexbox */
+  justify-content: space-around; /* Căn đều các phần tử con */
+  align-items: center; /* Căn giữa theo chiều dọc */
+  margin-bottom: 20px; /* Cách lề dưới */
+}
+
+/* Định nghĩa media query cho màn hình rộng */
+@media (min-width: 1024px) { /* Điều chỉnh breakpoint khi cần thiết */
+    .input-area {
+      flex-direction: row; /* Xếp hàng ngang */
+    }
+  
+    .input-area > div {
+      flex: 1; /* Chia đều không gian cho các phần tử con */
+      margin: 0 10px;
+    }
+}
+
+/* Định nghĩa media query cho màn hình hẹp */
+@media (max-width: 1023px) { /* Điều chỉnh breakpoint khi cần thiết */
+  .input-area {
+    flex-direction: column; /* Xếp hàng dọc */
   }
 }
