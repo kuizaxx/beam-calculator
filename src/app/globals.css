@@ -37,8 +37,17 @@ input[type="number"] {
   margin-bottom: 10px;
 }
 
+select[type="text"] {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  margin-bottom: 10px;
+}
+
 button[type="submit"] {
   background-color: #3498db;
+  margin: 4px 2px;
   color: #fff;
   padding: 10px 20px;
   border: none;
@@ -49,6 +58,12 @@ button[type="submit"] {
 
 button[type="submit"]:hover {
   background-color: #2980b9;
+}
+
+/* Nút "Tính toán" khi disabled (màu xám) */
+button[type="submit"][disabled] {
+  background-color: #ccc;
+  cursor: default; /* Con trỏ mặc định */
 }
 
 .beam-diagram {
@@ -85,7 +100,7 @@ button[type="submit"]:hover {
 .input-area {
   display: flex; /* Sử dụng Flexbox */
   justify-content: space-around; /* Căn đều các phần tử con */
-  align-items: center; /* Căn giữa theo chiều dọc */
+  align-items: stretch; /* Căn giữa theo chiều dọc */
   margin-bottom: 20px; /* Cách lề dưới */
 }
 
@@ -106,4 +121,19 @@ button[type="submit"]:hover {
   .input-area {
     flex-direction: column; /* Xếp hàng dọc */
   }
+}
+
+.edit-button {
+  background-color: #4CAF50; /* Green */
+  margin: 4px 2px;
+  color: #fff;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.edit-button:hover {
+  background-color: #3e8e41; /* Darker green */
 }

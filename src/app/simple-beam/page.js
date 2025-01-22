@@ -1,263 +1,37 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import BeamChart from "../components/BeamChart";
 import Image from "next/image";
 
 export default function SimpleBeam() {
-  const [length, setLength] = useState(0);
-  const [loadValue, setLoadValue] = useState(0);
-  const [material, setMaterial] = useState("Thép");
-  const [elasticModulus, setElasticModulus] = useState(210000); // E cho Thép
-  const [customE, setCustomE] = useState(0); // E tùy chỉnh
-  const [showCustomEInput, setShowCustomEInput] = useState(false); // Hiển thị ô input E tùy chỉnh
+  const [length, setLength] = useState(1); // Giá trị mặc định là 1
+  const [loadValue, setLoadValue] = useState(10); // Giá trị mặc định là 10
   const [shearForceData, setShearForceData] = useState(null);
   const [bendingMomentData, setBendingMomentData] = useState(null);
-  const [errorL, setErrorL] = useState("");
-  const [errorQ, setErrorQ] = useState("");
-  const [errorE, setErrorE] = useState(""); // Thêm error E
-  const [showChart, setShowChart] = useState(false);
-
-  // State cho tiết diện
-  const [sectionType, setSectionType] = useState("rectangle"); // Mặc định là hình chữ nhật
-  const [sectionParams, setSectionParams] = useState({}); // Lưu trữ các thông số kích thước
-  const [sectionError, setSectionError] = useState("");
-
-  // State cho kết quả tính toán
   const [maxBendingMoment, setMaxBendingMoment] = useState(0);
   const [maxShearForce, setMaxShearForce] = useState(0);
   const [momentOfInertia, setMomentOfInertia] = useState(0);
+  const [maxDeflection, setMaxDeflection] = useState(0);
 
-  // Hàm để lấy giá trị E dựa trên vật liệu
-  const getElasticModulus = (selectedMaterial) => {
-    switch (selectedMaterial) {
-      case "Thép":
-        return 210000; // MPa
-      case "Gỗ":
-        return 5500; // MPa
-      case "Bê tông":
-        return 27000; // MPa
-      default:
-        return 0;
-    }
-  };
+  // State cho tiết diện, mặc định là hình chữ nhật
+  const [sectionType, setSectionType] = useState("rectangle");
+  const [sectionParams, setSectionParams] = useState({ b: 100, h: 200 }); // Giá trị mặc định
 
- // Xử lý thay đổi form
- const handleInputChange = () => {
-    const newLength = parseFloat(document.getElementById("length")?.value || "0");
-    const newLoadValue = parseFloat(document.getElementById("loadValue")?.value || "0");
-    const newMaterial = document.getElementById("material")?.value || "Thép";
-    const newCustomE = parseFloat(document.getElementById("customE")?.value || "0");
-    const newSectionType = document.getElementById("sectionType")?.value;
+  // State cho vật liệu
+  const [material, setMaterial] = useState("Thép"); // Giá trị mặc định là Thép
+  const [elasticModulus, setElasticModulus] = useState(210000); // E mặc định cho Thép
+  const [customE, setCustomE] = useState(0); // E tùy chỉnh
+  const [showCustomEInput, setShowCustomEInput] = useState(false); // Ẩn/hiện ô input E tùy chỉnh
 
-    setLength(newLength);
-    setLoadValue(newLoadValue);
-    setMaterial(newMaterial);
-    setSectionType(newSectionType);
-    setSectionParams({}); // Reset thông số tiết diện khi thay đổi loại
-    setSectionError(""); // Reset lỗi
+  // State cho việc hiển thị kết quả và biểu đồ
+  const [showChart, setShowChart] = useState(false);
 
-    if (newMaterial === "Khác") {
-      setShowCustomEInput(true);
-      setElasticModulus(newCustomE);
-      if (newCustomE <= 0) {
-        setErrorE("Giá trị E phải lớn hơn 0 (MPa).");
-      } else {
-        setErrorE("");
-      }
-    } else {
-      setShowCustomEInput(false);
-      setElasticModulus(getElasticModulus(newMaterial));
-      setErrorE("");
-    }
+  // State cho việc chỉnh sửa
+  const [editMode, setEditMode] = useState(false);
 
-    if (newLength <= 0) {
-      setErrorL("Chiều dài dầm phải lớn hơn 0 (m).");
-    } else {
-      setErrorL("");
-    }
-
-    if (newLoadValue === 0) {
-      setErrorQ("Giá trị tải trọng phải khác 0 (kN/m).");
-    } else {
-      setErrorQ("");
-    }
-
-    // Lấy và validate thông số tiết diện
-    const newSectionParams = getSectionParams(newSectionType);
-    setSectionParams(newSectionParams);
-    validateSectionParams(newSectionType, newSectionParams);
-
-    // Chỉ ẩn biểu đồ khi giá trị không hợp lệ
-    if (newLength <= 0 || newLoadValue === 0 || (newMaterial === "Khác" && newCustomE <= 0) || errorE !== "" || sectionError !== "") {
-      setShowChart(false);
-    }
-  };
-
-  // Lấy thông số tiết diện từ form
-  const getSectionParams = (sectionType) => {
-    let params = {};
-    switch (sectionType) {
-      case "rectangle":
-        params = {
-          b: parseFloat(document.getElementById("rectWidth")?.value || "0"),
-          h: parseFloat(document.getElementById("rectHeight")?.value || "0"),
-        };
-        break;
-      case "hollowRectangle":
-        params = {
-          b: parseFloat(document.getElementById("hollowRectWidth")?.value || "0"),
-          h: parseFloat(document.getElementById("hollowRectHeight")?.value || "0"),
-          t: parseFloat(document.getElementById("hollowRectThickness")?.value || "0"),
-        };
-        break;
-      case "circle":
-        params = {
-          r: parseFloat(document.getElementById("circleRadius")?.value || "0"),
-        };
-        break;
-      case "hollowCircle":
-        params = {
-          r: parseFloat(document.getElementById("hollowCircleRadius")?.value || "0"),
-          t: parseFloat(document.getElementById("hollowCircleThickness")?.value || "0"),
-        };
-        break;
-      case "iSection":
-        params = {
-          b: parseFloat(document.getElementById("iSectionWidth")?.value || "0"),
-          tf: parseFloat(document.getElementById("iSectionFlangeThickness")?.value || "0"),
-          h: parseFloat(document.getElementById("iSectionHeight")?.value || "0"),
-          tw: parseFloat(document.getElementById("iSectionWebThickness")?.value || "0"),
-        };
-        break;
-      default:
-        break;
-    }
-    return params;
-  };
-
-  // Hàm validate thông số tiết diện
-  const validateSectionParams = (type, params) => {
-    let error = "";
-
-    switch (type) {
-      case "rectangle":
-        if (!params.b || params.b <= 0) {
-          error = "Chiều rộng (b) phải lớn hơn 0.";
-        } else if (!params.h || params.h <= 0) {
-          error = "Chiều cao (h) phải lớn hơn 0.";
-        }
-        break;
-      case "hollowRectangle":
-        if (!params.b || params.b <= 0) {
-          error = "Chiều rộng (b) phải lớn hơn 0.";
-        } else if (!params.h || params.h <= 0) {
-          error = "Chiều cao (h) phải lớn hơn 0.";
-        } else if (!params.t || params.t <= 0) {
-          error = "Chiều dày (t) phải lớn hơn 0.";
-        } else if (params.t * 2 >= params.b) {
-          error = "Chiều dày (t) không hợp lệ.";
-        } else if (params.t * 2 >= params.h) {
-          error = "Chiều dày (t) không hợp lệ.";
-        }
-        break;
-      case "circle":
-        if (!params.r || params.r <= 0) {
-          error = "Bán kính (r) phải lớn hơn 0.";
-        }
-        break;
-      case "hollowCircle":
-        if (!params.r || params.r <= 0) {
-          error = "Bán kính (r) phải lớn hơn 0.";
-        } else if (!params.t || params.t <= 0) {
-          error = "Chiều dày (t) phải lớn hơn 0.";
-        } else if (params.t >= params.r / 2) {
-          error = "Chiều dày (t) không hợp lệ.";
-        }
-        break;
-      case "iSection":
-        if (!params.b || params.b <= 0) {
-          error = "Chiều rộng (b) phải lớn hơn 0.";
-        } else if (!params.tf || params.tf <= 0) {
-          error = "Chiều dày cánh (tf) phải lớn hơn 0.";
-        } else if (!params.h || params.h <= 0) {
-          error = "Chiều cao (h) phải lớn hơn 0.";
-        } else if (!params.tw || params.tw <= 0) {
-          error = "Chiều dày bụng (tw) phải lớn hơn 0.";
-        } else if (params.tw >= params.b) {
-          error = "Chiều dày bụng (tw) không hợp lệ.";
-        } else if (params.tf * 2 >= params.h) {
-          error = "Chiều dày cánh (tf) không hợp lệ.";
-        }
-        break;
-      default:
-        break;
-    }
-
-    setSectionError(error);
-  };
-
-  useEffect(() => {
-    const lengthInput = document.getElementById("length");
-    const loadValueInput = document.getElementById("loadValue");
-    const materialSelect = document.getElementById("material");
-    const customEInput = document.getElementById("customE");
-    const sectionTypeSelect = document.getElementById("sectionType");
-    const rectWidthInput = document.getElementById("rectWidth");
-    const rectHeightInput = document.getElementById("rectHeight");
-    const hollowRectWidthInput = document.getElementById("hollowRectWidth");
-    const hollowRectHeightInput = document.getElementById("hollowRectHeight");
-    const hollowRectThicknessInput = document.getElementById("hollowRectThickness");
-    const circleRadiusInput = document.getElementById("circleRadius");
-    const hollowCircleRadiusInput = document.getElementById("hollowCircleRadius");
-    const hollowCircleThicknessInput = document.getElementById("hollowCircleThickness");
-    const iSectionWidthInput = document.getElementById("iSectionWidth");
-    const iSectionFlangeThicknessInput = document.getElementById("iSectionFlangeThickness");
-    const iSectionHeightInput = document.getElementById("iSectionHeight");
-    const iSectionWebThicknessInput = document.getElementById("iSectionWebThickness");
-
-    // Thiết lập lắng nghe sự kiện
-    lengthInput?.addEventListener("input", handleInputChange);
-    loadValueInput?.addEventListener("input", handleInputChange);
-    materialSelect?.addEventListener("change", handleInputChange);
-    customEInput?.addEventListener("input", handleInputChange);
-    sectionTypeSelect?.addEventListener("change", handleInputChange);
-    rectWidthInput?.addEventListener("input", handleInputChange);
-    rectHeightInput?.addEventListener("input", handleInputChange);
-    hollowRectWidthInput?.addEventListener("input", handleInputChange);
-    hollowRectHeightInput?.addEventListener("input", handleInputChange);
-    hollowRectThicknessInput?.addEventListener("input", handleInputChange);
-    circleRadiusInput?.addEventListener("input", handleInputChange);
-    hollowCircleRadiusInput?.addEventListener("input", handleInputChange);
-    hollowCircleThicknessInput?.addEventListener("input", handleInputChange);
-    iSectionWidthInput?.addEventListener("input", handleInputChange);
-    iSectionFlangeThicknessInput?.addEventListener("input", handleInputChange);
-    iSectionHeightInput?.addEventListener("input", handleInputChange);
-    iSectionWebThicknessInput?.addEventListener("input", handleInputChange);
-
-    handleInputChange()
-
-    // Cleanup
-    return () => {
-      lengthInput?.removeEventListener("input", handleInputChange);
-      loadValueInput?.removeEventListener("input", handleInputChange);
-      materialSelect?.removeEventListener("change", handleInputChange);
-      customEInput?.removeEventListener("input", handleInputChange);
-      sectionTypeSelect?.removeEventListener("change", handleInputChange);
-      rectWidthInput?.removeEventListener("input", handleInputChange);
-      rectHeightInput?.removeEventListener("input", handleInputChange);
-      hollowRectWidthInput?.removeEventListener("input", handleInputChange);
-      hollowRectHeightInput?.removeEventListener("input", handleInputChange);
-      hollowRectThicknessInput?.removeEventListener("input", handleInputChange);
-      circleRadiusInput?.removeEventListener("input", handleInputChange);
-      hollowCircleRadiusInput?.removeEventListener("input", handleInputChange);
-      hollowCircleThicknessInput?.removeEventListener("input", handleInputChange);
-      iSectionWidthInput?.removeEventListener("input", handleInputChange);
-      iSectionFlangeThicknessInput?.removeEventListener("input", handleInputChange);
-      iSectionHeightInput?.removeEventListener("input", handleInputChange);
-      iSectionWebThicknessInput?.removeEventListener("input", handleInputChange);
-    };
-  }, []);
+  // State cho việc submitting
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function calculateShearForce(length, loadValue, x) {
     const q = loadValue;
@@ -269,7 +43,6 @@ export default function SimpleBeam() {
     return (q * x * (length - x)) / 2;
   }
 
-  // Tính toán mô-men quán tính dựa trên loại tiết diện và thông số
   function calculateMomentOfInertia(sectionType, sectionParams) {
     let I = 0;
     switch (sectionType) {
@@ -303,111 +76,201 @@ export default function SimpleBeam() {
     }
     return I;
   }
+  function calculateDeflection(x, length, loadValue, elasticModulus, momentOfInertia) {
+    const q = loadValue; // kN/m
+    const L = length;    // m
+    const E = elasticModulus; // MPa (N/mm²)
+    const I = momentOfInertia; // mm⁴
+
+    return Math.pow(10, 12) * (Math.pow(L, 3) - 2 * L * Math.pow(x, 2) + Math.pow(x, 3)) * (q * x) / (24 * E * I); // Kết quả là mm
+  }
 
   const {
     calculatedShearForceData,
     calculatedBendingMomentData,
-    calculatedMomentOfInertia,
+    calculatedDeflectionData,
   } = useMemo(() => {
-    if (length > 0 && loadValue !== 0) {
-      const numPoints = 100;
-      const xValues = [];
-      const shearForceValues = [];
-      const bendingMomentValues = [];
+    const numPoints = 100;
+    const xValues = [];
+    const shearForceValues = [];
+    const bendingMomentValues = [];
+    const deflectionValues = [];
 
-      for (let i = 0; i <= numPoints; i++) {
-        const x = (length * i) / numPoints;
-        xValues.push(x.toFixed(2));
-        shearForceValues.push(
-          calculateShearForce(length, loadValue, x).toFixed(2)
-        );
-        bendingMomentValues.push(
-          calculateBendingMoment(length, loadValue, x).toFixed(2)
-        );
-      }
+    for (let i = 0; i <= numPoints; i++) {
+      const x = (length * i) / numPoints;
+      xValues.push(x.toFixed(2));
+      shearForceValues.push(
+        calculateShearForce(length, loadValue, x).toFixed(2)
+      );
+      bendingMomentValues.push(
+        calculateBendingMoment(length, loadValue, x).toFixed(2)
+      );
 
-      // Tính moment of inertia
-      const I = calculateMomentOfInertia(sectionType, sectionParams);
-
-      return {
-        calculatedShearForceData: {
-          title: "Biểu đồ lực cắt",
-          label: "Lực cắt (kN)",
-          labels: xValues,
-          data: shearForceValues,
-        },
-        calculatedBendingMomentData: {
-          title: "Biểu đồ mô-men uốn",
-          label: "Mô-men uốn (kN.m)",
-          labels: xValues,
-          data: bendingMomentValues,
-        },
-        calculatedMomentOfInertia: I,
-      };
-    } else {
-      return {
-        calculatedShearForceData: null,
-        calculatedBendingMomentData: null,
-        calculatedMomentOfInertia: null,
-      };
+      const newMomentOfInertia = calculateMomentOfInertia(
+        sectionType,
+        sectionParams
+      );
+      deflectionValues.push(calculateDeflection(x, length, loadValue, elasticModulus, newMomentOfInertia).toFixed(4));
     }
-  }, [length, loadValue, sectionType, sectionParams]);
+
+    return {
+      calculatedShearForceData: {
+        title: "Biểu đồ lực cắt",
+        label: "Lực cắt (kN)",
+        labels: xValues,
+        data: shearForceValues,
+      },
+      calculatedBendingMomentData: {
+        title: "Biểu đồ mô-men uốn",
+        label: "Mô-men uốn (kN.m)",
+        labels: xValues,
+        data: bendingMomentValues,
+      },
+      calculatedDeflectionData: {
+        title: "Biểu đồ độ võng",
+        label: "Độ võng (mm)",
+        labels: xValues,
+        data: deflectionValues,
+      },
+    };
+  }, [length, loadValue, sectionType, sectionParams, elasticModulus]);
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    // Chỉ hiển thị biểu đồ và kết quả khi tất cả thông số hợp lệ
-    if (length > 0 && loadValue !== 0 && !errorL && !errorQ && !errorE && !sectionError) {
-      setShearForceData(calculatedShearForceData);
-      setBendingMomentData(calculatedBendingMomentData);
-      setMaxBendingMoment(Math.max(...calculatedBendingMomentData.data));
-      setMaxShearForce(Math.max(...calculatedShearForceData.data));
-      setMomentOfInertia(calculatedMomentOfInertia);
-      setShowChart(true);
-    } else {
-      setShowChart(false);
+
+    // Bắt đầu submitting
+    setIsSubmitting(true);
+
+    // Parse sectionParams thành số trước khi tính toán
+    const parsedSectionParams = {};
+    for (const key in sectionParams) {
+      parsedSectionParams[key] = parseFloat(sectionParams[key]);
     }
+
+    // Tính toán lại các giá trị
+    const newMomentOfInertia = calculateMomentOfInertia(
+      sectionType,
+      parsedSectionParams
+    );
+
+    // Tính độ võng lớn nhất
+    const newMaxDeflection =
+      (5 * loadValue * Math.pow(length, 4)) /
+      (384 * elasticModulus * newMomentOfInertia * Math.pow(10, -12));
+
+    // Cập nhật state
+    setShearForceData(calculatedShearForceData);
+    setBendingMomentData(calculatedBendingMomentData);
+    setMaxBendingMoment(Math.max(...calculatedBendingMomentData.data));
+    setMaxShearForce(Math.max(...calculatedShearForceData.data));
+    setMomentOfInertia(newMomentOfInertia);
+    setMaxDeflection(newMaxDeflection)
+
+    // Hiển thị kết quả và biểu đồ, tắt chế độ chỉnh sửa
+    setShowChart(true);
+    setEditMode(false);
+
+    // Kết thúc submitting sau khi đã set các state khác
+    setIsSubmitting(false);
+  };
+
+  const handleInputChange = (event) => {
+    const { name, value } = event.target;
+
+    if (name === "length") {
+      setLength(parseFloat(value));
+    } else if (name === "loadValue") {
+      setLoadValue(parseFloat(value));
+    } else if (name === "sectionType") {
+      setSectionType(value);
+      // Reset sectionParams khi thay đổi loại tiết diện
+      setSectionParams({});
+    } else if (name === "material") {
+      setMaterial(value);
+      if (value === "Khác") {
+        setShowCustomEInput(true);
+        setElasticModulus(0); // Reset giá trị E khi chọn "Khác"
+      } else {
+        setShowCustomEInput(false);
+        // Cập nhật E theo vật liệu
+        switch (value) {
+          case "Thép":
+            setElasticModulus(210000);
+            break;
+          case "Gỗ":
+            setElasticModulus(5500);
+            break;
+          case "Bê tông":
+            setElasticModulus(27000);
+            break;
+          default:
+            setElasticModulus(0);
+        }
+      }
+    } else if (name === "customE") {
+      setCustomE(parseFloat(value));
+      setElasticModulus(parseFloat(value));
+    } else {
+      // Cập nhật sectionParams dựa trên loại tiết diện và tên trường
+      setSectionParams((prevParams) => ({
+        ...prevParams,
+        [name]: value,
+      }));
+    }
+  };
+
+  const handleEdit = () => {
+    // Bật chế độ chỉnh sửa, ẩn kết quả và biểu đồ
+    setEditMode(true);
+    setShowChart(false);
+    // Cho phép submit lại
+    setIsSubmitting(false);
   };
 
   return (
     <main>
       <h1>Dầm đơn giản, tải phân bố đều</h1>
 
-      {/* Container cho hình minh họa và phần nhập thông số */}
       <div className="input-area">
-        {/* Hình minh họa */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            marginBottom: "20px",
-          }}
-        >
+        <div>
           <Image
             src="/images/simple-beam-diagram.png"
             alt="Sơ đồ dầm đơn giản chịu tải phân bố đều"
             width={500}
             height={300}
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
           />
         </div>
 
-        {/* Khu vực nhập thông số */}
         <div>
           <h2>Thông số dầm</h2>
           <form onSubmit={handleSubmit}>
             <div>
               <label htmlFor="length">Chiều dài dầm (L) (m): </label>
-              <input type="number" id="length" name="length" />
-              {errorL && <p style={{ color: "red" }}>{errorL}</p>}
+              <input
+                type="number"
+                id="length"
+                name="length"
+                value={length}
+                onChange={handleInputChange}
+                disabled={showChart && !editMode}
+                className="input-field"
+              />
             </div>
 
-            {/* Tải trọng */}
             <div>
               <label htmlFor="loadValue">
                 Giá trị tải phân bố đều (q) (kN/m):{" "}
               </label>
-              <input type="number" id="loadValue" name="loadValue" />
-              {errorQ && <p style={{ color: "red" }}>{errorQ}</p>}
+              <input
+                type="number"
+                id="loadValue"
+                name="loadValue"
+                value={loadValue}
+                onChange={handleInputChange}
+                disabled={showChart && !editMode}
+                className="input-field"
+              />
             </div>
 
             {/* Danh mục vật liệu */}
@@ -418,10 +281,12 @@ export default function SimpleBeam() {
                 name="material"
                 value={material}
                 onChange={handleInputChange}
+                disabled={showChart && !editMode}
+                className="input-field"
               >
-                <option value="Thép">Thép (E = 210,000 MPa)</option>
-                <option value="Gỗ">Gỗ (E = 5,500 MPa)</option>
-                <option value="Bê tông">Bê tông (E = 27,000 MPa)</option>
+                <option value="Thép">Thép</option>
+                <option value="Gỗ">Gỗ</option>
+                <option value="Bê tông">Bê tông (B20)</option>
                 <option value="Khác">Khác</option>
               </select>
             </div>
@@ -435,18 +300,24 @@ export default function SimpleBeam() {
                   id="customE"
                   name="customE"
                   value={customE}
-                  onChange={(e) => setCustomE(e.target.value)}
+                  onChange={handleInputChange}
+                  disabled={showChart && !editMode}
+                  className="input-field"
                 />
-                {errorE && <p style={{ color: "red" }}>{errorE}</p>}
               </div>
             ) : (
               <div>
                 <label>Mô đun đàn hồi E (MPa):</label>
-                <input type="text" value={elasticModulus} readOnly />
+                <input
+                  type="text"
+                  value={elasticModulus}
+                  readOnly
+                  className="input-field"
+                  disabled={showChart && !editMode}
+                />
               </div>
             )}
 
-            {/* Chọn loại tiết diện */}
             <div>
               <label htmlFor="sectionType">Loại tiết diện:</label>
               <select
@@ -454,6 +325,8 @@ export default function SimpleBeam() {
                 name="sectionType"
                 value={sectionType}
                 onChange={handleInputChange}
+                disabled={showChart && !editMode}
+                className="input-field"
               >
                 <option value="rectangle">Hình chữ nhật</option>
                 <option value="hollowRectangle">Hình chữ nhật rỗng</option>
@@ -467,12 +340,32 @@ export default function SimpleBeam() {
             {sectionType === "rectangle" && (
               <div>
                 <div>
-                  <label htmlFor="rectWidth">Chiều rộng b (mm):</label>
-                  <input type="number" id="rectWidth" name="rectWidth" />
+                  <label htmlFor="b">Chiều rộng b (mm):</label>
+                  <input
+                    type="number"
+                    id="b"
+                    name="b"
+                    value={sectionParams.b || ""}
+                    onChange={handleInputChange}
+                    disabled={showChart && !editMode}
+                    className="input-field"
+                    min="0"
+                    step="0.0001"
+                  />
                 </div>
                 <div>
-                  <label htmlFor="rectHeight">Chiều cao h (mm):</label>
-                  <input type="number" id="rectHeight" name="rectHeight" />
+                  <label htmlFor="h">Chiều cao h (mm):</label>
+                  <input
+                    type="number"
+                    id="h"
+                    name="h"
+                    value={sectionParams.h || ""}
+                    onChange={handleInputChange}
+                    disabled={showChart && !editMode}
+                    className="input-field"
+                    min="0"
+                    step="0.0001"
+                  />
                 </div>
               </div>
             )}
@@ -480,29 +373,45 @@ export default function SimpleBeam() {
             {sectionType === "hollowRectangle" && (
               <div>
                 <div>
-                  <label htmlFor="hollowRectWidth">Chiều rộng b (mm):</label>
+                  <label htmlFor="b">Chiều rộng b (mm):</label>
                   <input
                     type="number"
-                    id="hollowRectWidth"
-                    name="hollowRectWidth"
+                    id="b"
+                    name="b"
+                    value={sectionParams.b || ""}
+                    onChange={handleInputChange}
+                    disabled={showChart && !editMode}
+                    className="input-field"
+                    min="0"
+                    step="0.0001"
                   />
                 </div>
                 <div>
-                  <label htmlFor="hollowRectHeight">Chiều cao h (mm):</label>
+                  <label htmlFor="h">Chiều cao h (mm):</label>
                   <input
                     type="number"
-                    id="hollowRectHeight"
-                    name="hollowRectHeight"
+                    id="h"
+                    name="h"
+                    value={sectionParams.h || ""}
+                    onChange={handleInputChange}
+                    disabled={showChart && !editMode}
+                    className="input-field"
+                    min="0"
+                    step="0.0001"
                   />
                 </div>
                 <div>
-                  <label htmlFor="hollowRectThickness">
-                    Chiều dày t (mm):
-                  </label>
+                  <label htmlFor="t">Chiều dày t (mm):</label>
                   <input
                     type="number"
-                    id="hollowRectThickness"
-                    name="hollowRectThickness"
+                    id="t"
+                    name="t"
+                    value={sectionParams.t || ""}
+                    onChange={handleInputChange}
+                    disabled={showChart && !editMode}
+                    className="input-field"
+                    min="0"
+                    step="0.0001"
                   />
                 </div>
               </div>
@@ -510,29 +419,49 @@ export default function SimpleBeam() {
 
             {sectionType === "circle" && (
               <div>
-                <label htmlFor="circleRadius">Bán kính r (mm):</label>
-                <input type="number" id="circleRadius" name="circleRadius" />
+                <label htmlFor="r">Bán kính r (mm):</label>
+                <input
+                  type="number"
+                  id="r"
+                  name="r"
+                  value={sectionParams.r || ""}
+                  onChange={handleInputChange}
+                  disabled={showChart && !editMode}
+                  className="input-field"
+                  min="0"
+                  step="0.0001"
+                />
               </div>
             )}
 
             {sectionType === "hollowCircle" && (
               <div>
                 <div>
-                  <label htmlFor="hollowCircleRadius">Bán kính r (mm):</label>
+                  <label htmlFor="r">Bán kính r (mm):</label>
                   <input
                     type="number"
-                    id="hollowCircleRadius"
-                    name="hollowCircleRadius"
+                    id="r"
+                    name="r"
+                    value={sectionParams.r || ""}
+                    onChange={handleInputChange}
+                    disabled={showChart && !editMode}
+                    className="input-field"
+                    min="0"
+                    step="0.0001"
                   />
                 </div>
                 <div>
-                  <label htmlFor="hollowCircleThickness">
-                    Chiều dày t (mm):
-                  </label>
+                  <label htmlFor="t">Chiều dày t (mm):</label>
                   <input
                     type="number"
-                    id="hollowCircleThickness"
-                    name="hollowCircleThickness"
+                    id="t"
+                    name="t"
+                    value={sectionParams.t || ""}
+                    onChange={handleInputChange}
+                    disabled={showChart && !editMode}
+                    className="input-field"
+                    min="0"
+                    step="0.0001"
                   />
                 </div>
               </div>
@@ -541,72 +470,95 @@ export default function SimpleBeam() {
             {sectionType === "iSection" && (
               <div>
                 <div>
-                  <label htmlFor="iSectionWidth">Chiều rộng b (mm):</label>
-                  <input type="number" id="iSectionWidth" name="iSectionWidth" />
-                </div>
-                <div>
-                  <label htmlFor="iSectionFlangeThickness">
-                    Chiều dày cánh tf (mm):
-                  </label>
+                  <label htmlFor="b">Chiều rộng b (mm):</label>
                   <input
                     type="number"
-                    id="iSectionFlangeThickness"
-                    name="iSectionFlangeThickness"
+                    id="b"
+                    name="b"
+                    value={sectionParams.b || ""}
+                    onChange={handleInputChange}
+                    disabled={showChart && !editMode}
+                    className="input-field"
+                    min="0"
+                    step="0.0001"
                   />
                 </div>
                 <div>
-                  <label htmlFor="iSectionHeight">Chiều cao h (mm):</label>
-                  <input type="number" id="iSectionHeight" name="iSectionHeight" />
-                </div>
-                <div>
-                  <label htmlFor="iSectionWebThickness">
-                    Chiều dày bụng tw (mm):
-                  </label>
+                  <label htmlFor="tf">Chiều dày cánh tf (mm):</label>
                   <input
                     type="number"
-                    id="iSectionWebThickness"
-                    name="iSectionWebThickness"
+                    id="tf"
+                    name="tf"
+                    value={sectionParams.tf || ""}
+                    onChange={handleInputChange}
+                    disabled={showChart && !editMode}
+                    className="input-field"
+                    min="0"
+                    step="0.0001"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="h">Chiều cao h (mm):</label>
+                  <input
+                    type="number"
+                    id="h"
+                    name="h"
+                    value={sectionParams.h || ""}
+                    onChange={handleInputChange}
+                    disabled={showChart && !editMode}
+                    className="input-field"
+                    min="0"
+                    step="0.0001"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="tw">Chiều dày bụng tw (mm):</label>
+                  <input
+                    type="number"
+                    id="tw"
+                    name="tw"
+                    value={sectionParams.tw || ""}
+                    onChange={handleInputChange}
+                    disabled={showChart && !editMode}
+                    className="input-field"
+                    min="0"
+                    step="0.0001"
                   />
                 </div>
               </div>
             )}
-            {/* Nút "Tính toán" */}
-            <button
-              type="submit"
-              disabled={
-                length <= 0 ||
-                loadValue === 0 ||
-                errorL ||
-                errorQ ||
-                errorE ||
-                sectionError
-              }
-            >
+
+            <button type="submit" disabled={isSubmitting}>
               Tính toán
             </button>
+
+            {showChart && !editMode && (
+              <button type="button" onClick={handleEdit} className="edit-button">
+                Chỉnh sửa
+              </button>
+            )}
           </form>
         </div>
       </div>
 
       {/* Khu vực hiển thị kết quả */}
-      {showChart && (
+      {showChart && !editMode && (
         <div className="chart-container">
-          {/* Hiển thị thông tin tính toán */}
           <div>
             <h2>Kết quả tính toán</h2>
             <p>
-              Mô-men uốn lớn nhất (Mmax):{" "}
-              {maxBendingMoment.toFixed(2)} kN.m
+              Mô-men uốn lớn nhất (Mmax): {maxBendingMoment.toFixed(2)} kN.m
             </p>
-            <p>
-              Lực cắt lớn nhất (Vmax): {maxShearForce.toFixed(2)} kN
-            </p>
+            <p>Lực cắt lớn nhất (Vmax): {maxShearForce.toFixed(2)} kN</p>
             <p>
               Mô-men quán tính của tiết diện (I):{" "}
               {momentOfInertia.toFixed(2)} mm<sup>4</sup>
             </p>
+            <p>Mô đun đàn hồi E: {elasticModulus} MPa</p>
+            {/* Thêm dòng này để hiển thị độ võng */}
+            <p>Độ võng lớn nhất: {maxDeflection.toFixed(2)} mm</p>
           </div>
-          {/* Chart Area */}
+
           <div>
             <h2>Biểu đồ</h2>
             {calculatedShearForceData && (
@@ -615,6 +567,13 @@ export default function SimpleBeam() {
             {calculatedBendingMomentData && (
               <BeamChart
                 chartData={calculatedBendingMomentData}
+                length={length}
+                invertYAxis={true}
+              />
+            )}
+            {calculatedDeflectionData && (
+              <BeamChart
+                chartData={calculatedDeflectionData}
                 length={length}
                 invertYAxis={true}
               />
