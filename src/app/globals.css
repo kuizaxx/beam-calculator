@@ -137,3 +137,30 @@ button[type="submit"][disabled] {
 .edit-button:hover {
   background-color: #3e8e41; /* Darker green */
 }
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  margin-bottom: 20px;
+}
+
+.beam-link {
+  display: flex; /* Sử dụng Flexbox */
+  align-items: center; /* Căn giữa theo chiều dọc */
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  overflow: hidden; /* Ẩn phần ảnh bị tràn ra ngoài */
+  transition: box-shadow 0.2s ease-in-out; /* Hiệu ứng đổ bóng */
+  text-decoration: none; /* Loại bỏ gạch chân */
+}
+
+.beam-link:hover {
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.beam-link img {
+  margin-right: 20px; /* Khoảng cách giữa ảnh và text */
+}
