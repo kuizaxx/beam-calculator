@@ -88,6 +88,13 @@ button[type="submit"][disabled] {
   .chart-container {
     width: 95%; /* Rộng hơn trên màn hình nhỏ */
   }
+  .beam-link span {
+    display: none; /* Ẩn phần text */
+  }
+  .beam-link {
+    justify-content: center;
+    align-item: center;
+  }
 }
 
 @media (max-width: 480px) {
