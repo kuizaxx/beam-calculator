@@ -93,7 +93,7 @@ button[type="submit"][disabled] {
   }
   .beam-link {
     justify-content: center;
-    align-item: center;
+    align-items: center;
   }
 }
 
